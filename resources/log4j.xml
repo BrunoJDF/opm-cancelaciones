@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<log4j:configuration debug="true"
+	xmlns:log4j='http://jakarta.apache.org/log4j/'>
+
+<!-- 	<appender name="conciliation.file" class="org.apache.log4j.DailyRollingFileAppender"> -->
+<!-- 		<param name="file" value="${user.home}/reports/logs/OPM_MasiveCancel.log" /> -->
+<!-- 	   	<param name="append" value="true" /> -->
+	   
+<!-- 	   	<layout class="org.apache.log4j.PatternLayout"> -->
+<!-- 			<param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %p [%F:%L] ThreadId: %X{trdId} -  %m%n" /> -->
+<!-- 	   	</layout> -->
+<!-- 	   	 <filter class="org.apache.log4j.varia.LevelMatchFilter"> -->
+<!--             <param name="LevelToMatch" value="trace" /> -->
+<!--             <param name="AcceptOnMatch" value="false" /> -->
+<!--         </filter> -->
+<!-- 	</appender> -->
+	
+<!-- 	 <appender name="conciliation.console" class="org.apache.log4j.ConsoleAppender"> -->
+<!--         <layout class="org.apache.log4j.PatternLayout"> -->
+<!--             <param name="ConversionPattern" value="%m%n"/> -->
+<!--         </layout> -->
+<!--         <filter class="org.apache.log4j.varia.LevelMatchFilter"> -->
+<!--             <param name="LevelToMatch" value="trace" /> -->
+<!--             <param name="AcceptOnMatch" value="true" /> -->
+<!--         </filter> -->
+<!--         <filter class="org.apache.log4j.varia.DenyAllFilter" /> -->
+<!--     </appender> -->
+
+<!-- 	<logger name="com.opm.openapi.log.Log" additivity="false"> -->
+<!--         <level value="debug" /> -->
+<!--         <appender-ref ref="openapi.file" /> -->
+<!--     </logger>  -->
+	
+<!-- 	categories -->
+<!-- 	<category name="org.apache.commons"> -->
+<!-- 	    <priority value="OFF" /> -->
+<!-- 	</category> -->
+<!-- 	<category name="org.apache.catalina.loader.WebappClassLoader"> -->
+<!-- 	    <priority value="OFF" /> -->
+<!-- 	</category> -->
+
+<!-- 	<root> -->
+<!-- 		<level value="ALL" /> -->
+<!-- 		<appender-ref ref="conciliation.file" /> -->
+<!-- 		<appender-ref ref="conciliation.console" /> -->
+<!-- 	</root> -->
+
+	<appender name="CONSOLE_LOG" class="org.apache.log4j.ConsoleAppender">
+        <param name="Target" value="System.out" />
+        <param name="Threshold" value="INFO" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%c] %m%n" />
+        </layout>
+    </appender>
+    <appender name="FILE_LOG" class="org.apache.log4j.DailyRollingFileAppender">
+        <param name="file" value="${user.home}/reports/logs/OPM_MasiveCancel.log" />
+        <param name="Threshold" value="DEBUG" />
+        <param name="maxBackupIndex" value="5" />
+        <param name="maxFileSize" value="1500MB" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss,SSS} |%5p| [%c] | %m%n" />
+        </layout>
+    </appender>
+
+    <root>
+	    <level value="ALL" />
+        <appender-ref ref="CONSOLE_LOG" />
+        <appender-ref ref="FILE_LOG" />
+    </root>
+
+</log4j:configuration>
