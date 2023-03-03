@@ -16,13 +16,11 @@ import modulo.proyecto.utils.Utils;
 import org.apache.log4j.Logger;
 
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class CancellationsBusiness {
     private Logger log = Log.getLog(getClass());
-    List<DetailReturn> returns = null;
+    CopyOnWriteArrayList<DetailReturn> returns = null;
     int poolSize = Integer.parseInt(Objects.requireNonNull(Utils.getProperty("switch.poolThread", "cancelacion.properties")));
     int timeOut = Integer.parseInt(Objects.requireNonNull(Utils.getProperty("switch.poolThread.timeout", "cancelacion.properties")));
     ExecutorService executor;
@@ -39,12 +37,12 @@ public class CancellationsBusiness {
             List<DetailReturn> listReturn = getAccountToCancel(returnDao, inputFile); //lista de cuentas para cancelar cjc
 
             if (listReturn != null && !listReturn.isEmpty()) {
-                this.returns = new ArrayList<>();
+                this.returns = new CopyOnWriteArrayList<>();
                 this.log.debug("Tamaño de la lista de las cuenta de las cuentas enviadas    " + listReturn.size() + " account to cancel ");
 
                 this.log.debug("Sending accounts to switch");
                 sendToSwitch(listReturn);
-                waitForProcessToFinish();
+                this.log.debug("returns " + returns.size());
             }
         } catch (Exception ex) {
             try {
@@ -143,29 +141,43 @@ public class CancellationsBusiness {
     }
 
     public void sendToSwitch(List<DetailReturn> listReturn) {
-        try {
-            for (final DetailReturn devolucion : listReturn) {
-                if (devolucion.getServicename().equals("retireCustomer")) {
-                    Callable<Void> task = new Callable<Void>() {
-                        public Void call() throws Exception {
-                            CancellationsBusiness.this.callBackSwitch(devolucion);
-                            return null;
-                        }
-                    };
-                    this.executor.submit(task);
-                    continue;
+        List<Future<?>> futures = new ArrayList<>();
+        for (final DetailReturn devolucion : listReturn) {
+            Future<?> response = this.executor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        processCancellations(devolucion);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
-                devolucion.setStratus("07");
-                devolucion.setReturnCode("313");
-                agregaDevolucion(devolucion);
-            }
-
-        } catch (Exception ex) {
-            this.log.error(ex);
+            });
+            futures.add(response);
         }
+        for (Future<?> element: futures){
+            try {
+                element.get();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        executor.shutdown();
     }
 
-    public void callBackSwitch(DetailReturn devolucion) throws Exception {
+    private void processCancellations(DetailReturn devolucion) throws Exception {
+        if (devolucion.getServicename().equals("retireCustomer")) {
+            devolucion = callBackSwitch(devolucion);
+        } else {
+            devolucion.setStratus("07");
+            devolucion.setReturnCode("313");
+        }
+        agregaDevolucion(devolucion);
+    }
+
+    public DetailReturn callBackSwitch(DetailReturn devolucion) throws Exception {
         DTOResponse response = new DTOResponse();
         Double r = Double.valueOf(Math.random());
         Long random = new Long(r.toString().substring(3, 15));
@@ -208,13 +220,11 @@ public class CancellationsBusiness {
             devolucion.setCustomer_Status(response.getCustomerStatus());
             devolucion.setBalance(response.getBalance());
         }
-        agregaDevolucion(devolucion);
+        return devolucion;
     }
 
     public void agregaDevolucion(DetailReturn devolucion) {
-        synchronized (this.returns) {
-            this.returns.add(devolucion);
-        }
+        this.returns.add(devolucion);
     }
 
 
@@ -398,14 +408,6 @@ public class CancellationsBusiness {
         return results;
     }
 
-    public void waitForProcessToFinish() {
-        if (this.executor != null) {
-            this.executor.shutdown();
-            do {
-
-            } while (!this.executor.isTerminated());
-        }
-    }
 }
 
 

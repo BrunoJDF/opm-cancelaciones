@@ -26,7 +26,6 @@ public class CancellationProcess {
     public static void main(String[] args) throws IOException {
         BasicConfigurator.configure();
 
-
         CancellationsBusiness cn = null;
         CancellationsDao cancellation = new CancellationsDao();
         log.info("Starts the process of massive cancellations Search the input file");

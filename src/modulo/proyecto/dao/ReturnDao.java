@@ -128,8 +128,8 @@ public class ReturnDao {
             DriverManager.registerDriver((Driver) new OracleDriver());
 
             String user = this.valuesDB.get("user");
-            String pass = "umerchant"; //this.valuesDB.get("pass");
-            this.conn = DriverManager.getConnection("jdbc:oracle:thin:@" + (String) this.valuesDB.get("ip") + ":" + (String) this.valuesDB.get("port") + ":" + (String) this.valuesDB.get("sid"), user, pass);
+            String pass = this.valuesDB.get("pass");
+            this.conn = DriverManager.getConnection("jdbc:oracle:thin:@" + (String) this.valuesDB.get("ip") + ":" + (String) this.valuesDB.get("port") + "/" + (String) this.valuesDB.get("sid"), user, pass);
 
 
             return true;
