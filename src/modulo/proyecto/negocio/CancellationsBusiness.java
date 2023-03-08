@@ -48,7 +48,7 @@ public class CancellationsBusiness {
 
                 while (!executor.isTerminated()) {
                     //doNothing
-                    log.info("returns " + this.returns.size());
+                    //log.debug("returns " + this.returns.size());
                 }
             }
         } catch (Exception ex) {
@@ -124,7 +124,7 @@ public class CancellationsBusiness {
                 String customer_Identifier = itemListaRespuesta.getCustomerIdentifier();
                 for (DetailReturn mapa : mapaDeCustomerIdentifierenHistorico.values()) {
                     if (mapa.getCustomerIdentifier().contains(customer_Identifier)) {
-                        //this.log.info("Customer identifier already in Historic table [" + customer_Identifier + "]");
+                        this.log.info("Customer identifier already in Historic table [" + customer_Identifier + "]");
                         itemListaRespuesta.setReturnCode(mapa.getReturnCode());
                         alreadyInHistoric.add(itemListaRespuesta);
                     }
