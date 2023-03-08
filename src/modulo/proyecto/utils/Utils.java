@@ -139,7 +139,6 @@ public class Utils {
             values.put("ip", p.getProperty("ip.c1"));
             values.put("port", p.getProperty("port.c1"));
             values.put("sid", p.getProperty("sid.c1"));
-            System.out.println("llegue aqui cjc");
             return values;
         } catch (FileNotFoundException e) {
             return null;

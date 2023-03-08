@@ -16,11 +16,13 @@ import modulo.proyecto.utils.Utils;
 import org.apache.log4j.Logger;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CancellationsBusiness {
     private Logger log = Log.getLog(getClass());
-    CopyOnWriteArrayList<DetailReturn> returns = null;
+    List<DetailReturn> returns = null;
     int poolSize = Integer.parseInt(Objects.requireNonNull(Utils.getProperty("switch.poolThread", "cancelacion.properties")));
     int timeOut = Integer.parseInt(Objects.requireNonNull(Utils.getProperty("switch.poolThread.timeout", "cancelacion.properties")));
     ExecutorService executor;
@@ -34,23 +36,23 @@ public class CancellationsBusiness {
             ReturnDao returnDao = new ReturnDao();
             this.log.debug("Processing cancellations, callToSwitch");
 
-            List<DetailReturn> listReturn = getAccountToCancel(returnDao, inputFile); //lista de cuentas para cancelar cjc
+            List<DetailReturn> listReturn = getAccountToCancel(returnDao, inputFile);
 
             if (listReturn != null && !listReturn.isEmpty()) {
                 this.returns = new CopyOnWriteArrayList<>();
-                this.log.debug("Tamaño de la lista de las cuenta de las cuentas enviadas    " + listReturn.size() + " account to cancel ");
+                this.log.debug("Tamaño de la lista de las cuenta de las cuentas enviadas " + listReturn.size() + " account to cancel ");
 
                 this.log.debug("Sending accounts to switch");
+
                 sendToSwitch(listReturn);
-                this.log.debug("returns " + returns.size());
+
+                while (!executor.isTerminated()) {
+                    //doNothing
+                    log.info("returns " + this.returns.size());
+                }
             }
         } catch (Exception ex) {
-            try {
-                this.executor.shutdown();
-            } catch (Exception ex1) {
-                this.log.error(ex1);
-            }
-            this.log.error(ex);
+            log.error("error generatesCancellations" + ex.getMessage());
         }
         return this.returns;
     }
@@ -79,17 +81,16 @@ public class CancellationsBusiness {
     }
 
 
-    public List<DetailReturn> insertaHistoricoYBorra(List<DetailReturn> returns, HashMap<String, DetailReturn> yaFueronCanceladas) {
+    public List<DetailReturn> insertaHistoricoYBorra(List<DetailReturn> returns, Map<String, DetailReturn> yaFueronCanceladas) {
         CancellationsDao cDao = new CancellationsDao();
         boolean result = false;
         if (returns != null && !returns.isEmpty()) {
             this.log.debug("Were processed " + returns.size() + " Cancellations");
             this.log.debug("Storing cancellations processed");
-            List<DetailReturn> listToInsert = returns; //lista para insertar
             List<DetailReturn> alreadyInHistoric = getTxnAlreadyInHistoric(returns, yaFueronCanceladas); //ya en historico
-            listToInsert.removeAll(alreadyInHistoric);
-            if (!listToInsert.isEmpty()) {
-                result = cDao.recordsProcessedCancellations(listToInsert);
+            returns.removeAll(alreadyInHistoric);
+            if (!returns.isEmpty()) {
+                result = cDao.recordsProcessedCancellations(returns);
             } else {
                 result = Boolean.TRUE.booleanValue();
             }
@@ -101,8 +102,8 @@ public class CancellationsBusiness {
                 this.log.debug("Se borró el registro del detalle borrado es " + borrado);
             }
 
-            listToInsert.addAll(alreadyInHistoric);
-            return listToInsert;
+            returns.addAll(alreadyInHistoric);
+            return returns;
         }
         return returns;
     }
@@ -116,14 +117,14 @@ public class CancellationsBusiness {
     }
 
 
-    public List<DetailReturn> getTxnAlreadyInHistoric(List<DetailReturn> returns, HashMap<String, DetailReturn> mapaDeCustomerIdentifierenHistorico) {
+    public List<DetailReturn> getTxnAlreadyInHistoric(List<DetailReturn> returns, Map<String, DetailReturn> mapaDeCustomerIdentifierenHistorico) {
         ArrayList<DetailReturn> alreadyInHistoric = new ArrayList<>();
         try {
             for (DetailReturn itemListaRespuesta : returns) {
                 String customer_Identifier = itemListaRespuesta.getCustomerIdentifier();
                 for (DetailReturn mapa : mapaDeCustomerIdentifierenHistorico.values()) {
                     if (mapa.getCustomerIdentifier().contains(customer_Identifier)) {
-                        this.log.info("Customer identifier already in Historic table [" + customer_Identifier + "]");
+                        //this.log.info("Customer identifier already in Historic table [" + customer_Identifier + "]");
                         itemListaRespuesta.setReturnCode(mapa.getReturnCode());
                         alreadyInHistoric.add(itemListaRespuesta);
                     }
@@ -141,30 +142,20 @@ public class CancellationsBusiness {
     }
 
     public void sendToSwitch(List<DetailReturn> listReturn) {
-        List<Future<?>> futures = new ArrayList<>();
         for (final DetailReturn devolucion : listReturn) {
-            Future<?> response = this.executor.submit(new Runnable() {
+            this.executor.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         processCancellations(devolucion);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        log.error("Error sendToSwitch" + e.getMessage());
                     }
                 }
             });
-            futures.add(response);
         }
-        for (Future<?> element: futures){
-            try {
-                element.get();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        executor.shutdown();
+
+        this.executor.shutdown();
     }
 
     private void processCancellations(DetailReturn devolucion) throws Exception {
@@ -179,9 +170,17 @@ public class CancellationsBusiness {
 
     public DetailReturn callBackSwitch(DetailReturn devolucion) throws Exception {
         DTOResponse response = new DTOResponse();
-        Double r = Double.valueOf(Math.random());
-        Long random = new Long(r.toString().substring(3, 15));
-        String originatorTransactionID = Long.toString(random.longValue());
+        double r = Math.random();
+        long random;
+        String randomString = String.valueOf(r);
+        try {
+            random = new Long(randomString.substring(3, 15));
+        } catch (IndexOutOfBoundsException e) {
+            String newRandomString = randomString.concat(String.valueOf(Math.random()));
+            String cleanNewRandomString = newRandomString.replace(".", "");
+            random = new Long(cleanNewRandomString.substring(3, 15));
+        }// 20 - 0
+        String originatorTransactionID = Long.toString(random);
         long systeDte = System.currentTimeMillis() * 100L;
         DTORequest request = new DTORequest();
         request.setServiceName(devolucion.getServicename());
